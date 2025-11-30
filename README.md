@@ -1,6 +1,7 @@
 # Trajectory Analysis
 
 ## Structure
+```txt
 project/
   data/
     cleaned.csv
@@ -33,3 +34,4 @@ project/
       chengdu.png
   drafts/
     ~ some deprecated and useless code / outputs during the process
+```
