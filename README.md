@@ -1,6 +1,7 @@
 # Trajectory-Based Urban Community Detection Project
 
 > This project is still in progress
+> 
 > The current version is only a sketch
 
 ## Project Goal
