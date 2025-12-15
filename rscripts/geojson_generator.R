@@ -28,8 +28,35 @@ for (file in files) {
     if (nrow(geojson) < 50)
       stop("Not enough valid points")
     
+    # Computation:
+    geojson <- geojson %>%
+      arrange(identification_number, track_timestamp) %>%
+      group_by(identification_number) %>%
+      mutate(
+        dt = as.numeric(
+          difftime(lead(track_timestamp),
+                   track_timestamp, units = "secs"
+          )
+        ),
+        
+        dist_m = distHaversine(
+          cbind(track_longitude, track_latitude),
+          cbind(lead(track_longitude), lead(track_latitude))
+        ),
+        
+        speed_ms = dist_m / dt,
+        
+        vertical_speed_ms = (lead(track_altitude) - track_altitude) / dt,
+        
+        heading = bearing(
+          cbind(track_longitude, track_latitude),
+          cbind(lead(track_longitude), lead(track_latitude))
+        )
+      ) %>%
+      ungroup()
+    
     # Spatialization:
-    geojson_sf <- st_as_df(
+    geojson_sf <- st_as_sf(
       geojson,
       coords = c("track_longitude", "track_latitude", "track_altitude"),
       crs = 4326,
@@ -37,7 +64,7 @@ for (file in files) {
     )
     
     # Building trajectories:
-    routes <-geojson_sf %>%
+    routes <- geojson_sf %>%
       group_by(identification_number) %>%
       arrange(track_timestamp, .by_group=TRUE) %>%
       filter(n() >= 2) %>%
@@ -48,7 +75,7 @@ for (file in files) {
       st_cast("LINESTRING")
     
     # Attach metadata:
-    meta <- geojsodn %>% %>%
+    meta <- geojson %>%
       select(
         identification_number,
         Airline,
