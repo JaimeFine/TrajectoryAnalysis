@@ -2,7 +2,6 @@ library(dplyr)
 library(sf)
 library(readr)
 library(tools)
-library(geosphere)
 
 TIMESTAMP_FORMAT <- "%Y-%m-%d %H:%M:%S"
 
@@ -20,44 +19,16 @@ for (file in files) {
         track_timestamp = as.POSIXct(track_timestamp, format=TIMESTAMP_FORMAT)
       ) %>%
       filter(
-        !is.na(track_timestamp),
         !is.na(track_longitude),
-        !is.na(track_latitude)
+        !is.na(track_latitude),
+        !is.na(track_altitude)
       )
     
-    if (nrow(geojson) < 50)
-      stop("Not enough valid points")
-    
-    # Computation:
-    geojson <- geojson %>%
-      arrange(identification_number, track_timestamp) %>%
-      group_by(identification_number) %>%
-      mutate(
-        dt = as.numeric(
-          difftime(lead(track_timestamp),
-                   track_timestamp, units = "secs"
-          )
-        ),
-        
-        dist_m = distHaversine(
-          cbind(track_longitude, track_latitude),
-          cbind(lead(track_longitude), lead(track_latitude))
-        ),
-        
-        speed_ms = dist_m / dt,
-        
-        vertical_speed_ms = (lead(track_altitude) - track_altitude) / dt,
-        
-        heading = bearing(
-          cbind(track_longitude, track_latitude),
-          cbind(lead(track_longitude), lead(track_latitude))
-        )
-      ) %>%
-      ungroup()
-    
-    # Spatialization:
+    # Creating .geojson file:
     geojson_sf <- st_as_sf(
-      geojson,
+      geojson %>%
+        select(identification_number, track_timestamp, track_heading, track_speed,
+               track_vertical_speed, track_longitude, track_latitude, track_altitude),
       coords = c("track_longitude", "track_latitude", "track_altitude"),
       crs = 4326,
       remove = FALSE
@@ -67,30 +38,21 @@ for (file in files) {
     routes <- geojson_sf %>%
       group_by(identification_number) %>%
       arrange(track_timestamp, .by_group=TRUE) %>%
-      filter(n() >= 2) %>%
-      summarise(
-        geometry = st_combine(geometry),
-        .groups = "drop"
-      ) %>%
+      summarise(geometry = st_combine(geometry)) %>%
       st_cast("LINESTRING")
     
     # Attach metadata:
-    meta <- geojson %>%
-      select(
-        identification_number,
-        Airline,
-        airport_origin_icao,
-        identification_id
-      ) %>%
-      distinct()
-    
     routes <- routes %>%
-      left_join(meta, by = "identification_number")
+      left_join(
+        geojson %>%
+          select(identification_number, Airline, airport_origin_icao) %>%
+          distinct(),
+        by = "identification_number"
+      )
     
     # Write the file:
     out_file <- file.path(
-      folder,
-      paste0(file_path_sans_ext(basename(file)), ".geojson")
+      folder, paste0(file_path_sans_ext(basename(file)), "_processed.geojson")
     )
     
     st_write(routes, out_file, driver = "GeoJSON", append = FALSE)
