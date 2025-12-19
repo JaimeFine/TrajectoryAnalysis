@@ -5,7 +5,7 @@ library(tools)
 
 TIMESTAMP_FORMAT <- "%Y-%m-%d %H:%M:%S"
 
-folder <- "data_folder"
+folder <- "C:/Users/"
 files <- list.files(folder, pattern = "\\.csv$", full.names=TRUE)
 
 for (file in files) {
@@ -14,7 +14,9 @@ for (file in files) {
 
   tryCatch({
     # Basic processing:
-    geojson <- read_csv(file, show_col_types=FALSE) %>%
+    geojson <- read_csv(
+        file, show_col_types=FALSE, col_types = cols(.default = col_character())
+      ) %>%
       mutate(
         track_timestamp = as.POSIXct(track_timestamp, format=TIMESTAMP_FORMAT)
       ) %>%
@@ -30,19 +32,19 @@ for (file in files) {
         select(identification_number, track_timestamp, track_heading, track_speed,
                track_vertical_speed, track_longitude, track_latitude, track_altitude),
       coords = c("track_longitude", "track_latitude", "track_altitude"),
+      vcoords = c("track_speed, track_heading")
       crs = 4326,
       remove = FALSE
     )
     
-    # Building trajectories:
-    routes <- geojson_sf %>%
-      group_by(identification_number) %>%
-      arrange(track_timestamp, .by_group=TRUE) %>%
-      summarise(geometry = st_combine(geometry)) %>%
-      st_cast("LINESTRING")
-    
     # Attach metadata:
-    routes <- routes %>%
+    geojson_sf <- geojson_sf %>%
+      rename(
+        spd = track_speed,
+        vspd = track_vertical_speed,
+        hd = track_heading,
+        time = track_timestamp
+      ) %>%
       left_join(
         geojson %>%
           select(identification_number, Airline, airport_origin_icao) %>%
@@ -55,7 +57,7 @@ for (file in files) {
       folder, paste0(file_path_sans_ext(basename(file)), "_processed.geojson")
     )
     
-    st_write(routes, out_file, driver = "GeoJSON", append = FALSE)
+    st_write(geojson_sf, out_file, driver = "GeoJSON", append = FALSE)
     
   }, error = function(e) {
     message("Error in ", file, ": ", e$message)
