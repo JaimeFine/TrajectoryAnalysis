@@ -3,7 +3,7 @@ library(sf)
 library(readr)
 library(tools)
 
-folder <- "D:/ADataBase/flights_data/2024-11-10"
+folder <- "D:/ADataBase/flights_data_csv/2024-11-10"
 files <- list.files(folder, pattern = "\\.csv$", full.names = TRUE)
 
 for (file in files) {
@@ -49,6 +49,12 @@ for (file in files) {
         flight_id = identification_number
       )
     
+    if (nrow(df) == 0) {
+      message("Skipping ", file, ": no valid rows after filtering")
+      next
+    }
+    
+    
     geojson_sf <- st_as_sf(
       df,
       coords = c("track_longitude", "track_latitude", "track_altitude"),
@@ -77,3 +83,4 @@ for (file in files) {
     message("Error in ", file, ": ", e$message)
   })
 }
+
