@@ -3,7 +3,7 @@ library(sf)
 library(readr)
 library(tools)
 
-folder <- "C:/Users/13647/OneDrive/Desktop"
+folder <- "D:/ADataBase/flights_data/2024-11-10"
 files <- list.files(folder, pattern = "\\.csv$", full.names = TRUE)
 
 for (file in files) {
@@ -66,7 +66,7 @@ for (file in files) {
       )
     
     out_file <- file.path(
-      folder,
+      "D:/ADataBase/flights_data_geojson/2024-11-10",
       paste0(file_path_sans_ext(basename(file)), "_processed.geojson")
     )
     
