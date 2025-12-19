@@ -3,8 +3,6 @@ library(sf)
 library(readr)
 library(tools)
 
-TIMESTAMP_FORMAT <- "%Y-%m-%d %H:%M:%S"
-
 folder <- "C:/Users/13647/OneDrive/Desktop"
 files <- list.files(folder, pattern = "\\.csv$", full.names = TRUE)
 
@@ -14,7 +12,9 @@ for (file in files) {
   
   tryCatch({
     
-    df <- read_csv(file, show_col_types = FALSE) %>%
+    df <- read_csv(
+      file, show_col_types = FALSE
+    ) %>%
       filter(
         !is.na(track_longitude),
         !is.na(track_latitude),
@@ -22,7 +22,7 @@ for (file in files) {
         !is.na(track_timestamp)
       ) %>%
       mutate(
-        track_timestamp = as.POSIXct(track_timestamp, format = TIMESTAMP_FORMAT),
+        track_timestamp = as.POSIXct(track_timestamp, format = "%Y.%m.%d, %H:%M:%S"),
         track_longitude = as.numeric(track_longitude),
         track_latitude  = as.numeric(track_latitude),
         track_altitude  = as.numeric(track_altitude),
