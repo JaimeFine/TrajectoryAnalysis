@@ -3,6 +3,10 @@ import numpy as np
 from datetime import datetime
 import json
 
+# -------------------- Block 1 ----------------- # 
+#      Preprocessing with the flight data        #
+# ---------------------------------------------- #
+
 flights = defaultdict(lambda: {
     "coords": [],
     "vel": [],
@@ -31,3 +35,12 @@ for f_id in flights:
     flights[f_id]["coords"] = np.array(flights[f_id]["coords"])
     flights[f_id]["vel"] = np.array(flights[f_id]["vel"])
 
+# ------------------ Block 2 ----------------- # 
+#            Computation heavy zone            #
+# -------------------------------------------- #
+
+# I decide to use a lovely linked list structure for the loss!
+for data in flights:
+    for i in range(len(flights[data]["coords"])):
+        flights[data]["coords"][i]
+        # Hold on...
