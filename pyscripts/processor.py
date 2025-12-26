@@ -48,7 +48,7 @@ jl = Julia(compiled_modules=False)
 from julia import LinearAlgebra
 """
 
-# Pure physics-based model:
+# Pure physics-based model ----- basic:
 physic_matrix = np.array(len(flights[f_id]), len(flights[f_id]["coords"] - 1))
 for data in flights:
     for i in range(len(flights[data]["coords"] - 1)):
@@ -56,3 +56,10 @@ for data in flights:
         dx = flights[data]["coords"][i] + flights[data]["vel"][i+1] @ flights[data]["dt"][i+1]
         physic_matrix[data][i] = dx
         
+# Pure physics-based model ----- advanced:
+better_matrix = np.array()
+
+# Physics-ML model:
+
+
+# Sparse attention?
