@@ -115,7 +115,11 @@ for f_id in flights:
         ca = coords[i] + vel[i] * dt[i] + 0.5 * a * dt[i]**2
 
         # Local curvature:
-        k = abs(v[i] + a) / v[i]**2
+        speed = np.linal.norm(vel[i])
+        if speed < 1e-7:
+            k = 0.0
+        else:
+            k = np.linalg.norm(np.cross(vel[i], a)) / (speed**3)
 
 
 # Physics-ML model:
