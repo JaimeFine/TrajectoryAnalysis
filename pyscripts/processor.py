@@ -85,26 +85,29 @@ for f_id in flights:
     vel = flights[f_id]["vel"]
     dt = flights[f_id]["dt"]
 
-    size = len(coords) - 1
+    size = len(coords)
     physic_better[f_id] = np.zeros((size, 3), dtype = float)
 
-    for i in range(1, size - 3):
-        x = coords[[i-2, i-1, i+1, i+2], 0]
-        y = coords[[i-2, i-1, i+1, i+2], 1]
-        z = coords[[i-2, i-1, i+1, i+2], 2]
+    for i in range(1, size - 2):
+        idx = [i-2, i-1, i+1, i+2]
 
-        vx = vel[[i-2, i-1, i+1, i+2], 0]
-        vy = vel[[i-2, i-1, i+1, i+2], 1]
-        vz = vel[[i-2, i-1, i+1, i+2], 2]
+        t0 = 0.0
+        t1 = dt[i-2]
+        tm = dt[i-2] + dt[i-1]
+        t2 = dt[i-2] + dt[i-1] + dt[i]
+        t3 = dt[i-2] + dt[i-1] + dt[i] + dt[i+1]
 
-        interpol_x = jl.CubicHermiteInterpolation(x, y, vy/vx)
-        interpol_y = jl.CubicHermiteInterpolation(y, z, vz/vy)
-        interpol_z = jl.CubicHermiteInterpolation(x, z, vz/vx)
+        t = np.array([t0, t1, t2, t3])
+        p = coords[idx]
+        v = vel[idx]
+
+        spline_x = jl.CubicHermiteInterpolation(t, p[:,0], v[:,1])
+        spline_y = jl.CubicHermiteInterpolation(t, p[:,1], v[:,1])
+        spline_z = jl.CubicHermiteInterpolation(t, p[:,2], v[:,2])
 
         # Get the Spline prediction:
-        t = dt[i-2] + dt[i-1] 
         spline = [
-            interpol_x(t), interpol_y(t), interpol_z(t)
+            spline_x(tm), spline_y(tm), spline_z(tm)
         ]
 
         # Calculate the Constant-Acceleration prediction:
