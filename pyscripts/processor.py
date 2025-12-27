@@ -75,19 +75,43 @@ is stupid!
 """
 
 # Pure physics-based model ----- advanced:
-from julia import Julia
-jl = Julia(compiled_modules=False)
+from scipy.interpolate import CubicHermiteSpline
+
+flight_alpha = {}
+
+for f_id in flights:
+    coords = flights[f_id]["coords"]
+    vel = flights[f_id]["vel"]
+    dt = flights[f_id]["dt"]
+
+    
 
 physic_better = {}
 for f_id in flights:
     coords = flights[f_id]["coords"]
     vel = flights[f_id]["vel"]
     dt = flights[f_id]["dt"]
-
     size = len(coords)
+
+    curvatures = []
+    a = np.zeros((size, 3))
+
+    for i in range(1, size-1):
+        a[i] = (vel[i+1] - vel[i-1]) / (dt[i-1] + dt[i])
+
+        speed = np.linalg.norm(vel[i])
+        if speed > 1e-7:
+            k = np.linalg.norm(np.cross(vel[i], a)) / speed**3
+            curvatures.append(k)
+
+    curvatures = np.array(curvatures)
+    k95 = np.percentile(curvatures, 95)
+
+    flight_alpha[f_id] = np.log(5) / k95
+
     physic_better[f_id] = np.zeros((size, 3), dtype = float)
 
-    for i in range(1, size - 2):
+    for i in range(2, size-2):
         idx = [i-2, i-1, i+1, i+2]
 
         t0 = 0.0
@@ -100,26 +124,29 @@ for f_id in flights:
         p = coords[idx]
         v = vel[idx]
 
-        spline_x = jl.CubicHermiteInterpolation(t, p[:,0], v[:,0])
-        spline_y = jl.CubicHermiteInterpolation(t, p[:,1], v[:,1])
-        spline_z = jl.CubicHermiteInterpolation(t, p[:,2], v[:,2])
+        spline_x = CubicHermiteSpline(t, p[:,0], v[:,0])
+        spline_y = CubicHermiteSpline(t, p[:,1], v[:,1])
+        spline_z = CubicHermiteSpline(t, p[:,2], v[:,2])
 
         # Get the Spline prediction:
-        spline = [
+        spline = np.array([
             spline_x(tm), spline_y(tm), spline_z(tm)
-        ]
+        ], dtype=float)
 
         # Calculate the Constant-Acceleration prediction:
-        a = (vel[i+1] - vel[i-1]) / (dt[i-1] + dt[i])
-        ca = coords[i-1] + vel[i-1] * dt[i-1] + a/2 * dt[i-1]**2
+        ca = coords[i-1] + vel[i-1] * dt[i-1] + a[i]/2 * dt[i-1]**2
 
         # Local curvature:
         speed = np.linalg.norm(vel[i])
-        if speed < 1e-7 | speed > 1e+7:
+        if speed < 1e-7 or speed > 1e+7:
             k = 0.0
         else:
             k = np.linalg.norm(np.cross(vel[i], a)) / (speed**3)
 
+        w = np.exp(-50 * k)
+        pred = w * ca + (1 - w) * spline
+
+        physic_better[f_id][i] = pred
 
 # Physics-ML model:
 
