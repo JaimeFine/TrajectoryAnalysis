@@ -11,7 +11,7 @@ import json
 flights = defaultdict(lambda: {
     "coords": [],
     "vel": [],
-    "time": [],
+    # "time": [],
     "dt": []
 })
 
@@ -28,17 +28,18 @@ for feature in geojson["features"]:
     lon, lat, alt = geom["coordinates"]
     vx, vy, vz = map(float, props["velocity"].split())
 
-    timestamp = datetime.fromisoformat(props["timestamp"])
+    # timestamp = datetime.fromisoformat(props["timestamp"])
     
     flights[f_id]["coords"].append([lon, lat, alt])
     flights[f_id]["vel"].append([vx, vy, vz])
-    flights[f_id]["time"].append(timestamp)
+    flights[f_id]["dt"].append(dt)
+    # flights[f_id]["time"].append(timestamp)
 
 for f_id in flights:
     flights[f_id]["coords"] = np.array(flights[f_id]["coords"])
     flights[f_id]["vel"] = np.array(flights[f_id]["vel"])
     flights[f_id]["dt"] = np.array(flights[f_id]["dt"])
-
+    
 # ------------------ Block 2 ----------------- # 
 #            Computation heavy zone            #
 # -------------------------------------------- #
@@ -49,12 +50,19 @@ from julia import LinearAlgebra
 """
 
 # Pure physics-based model ----- basic:
-physic_matrix = np.array(len(flights[f_id]), len(flights[f_id]["coords"] - 1))
-for data in flights:
-    for i in range(len(flights[data]["coords"] - 1)):
+physic_normal = {}
+for f_id in flights:
+    coords = flights[f_id]["coords"]
+    vel = flights[f_id]["vel"]
+    dt = flights[f_id]["dt"]
+
+    size = len(coords) - 1
+    physic_normal[f_id] = np.zeros((size, 3), dtype = float)
+
+    for i in range(size):
         # The phsic_matrix's first column is the prediction for 2nd position!!!
-        dx = flights[data]["coords"][i] + flights[data]["vel"][i+1] @ flights[data]["dt"][i+1]
-        physic_matrix[data][i] = dx
+        dx = coords[i] + vel[i+1] * dt[i+1]
+        physic_normal[f_id][i] = dx
         
 # Pure physics-based model ----- advanced:
 better_matrix = np.array()
@@ -63,3 +71,4 @@ better_matrix = np.array()
 
 
 # Sparse attention?
+
