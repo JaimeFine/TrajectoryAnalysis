@@ -161,7 +161,7 @@ for f_id in flights:
 
         physic_better[f_id][i] = pred
 
-# ------------------ Block 3 ----------------- # 
+# ------------------ Block 3 ----------------- #
 #          Computation for the loss            #
 # -------------------------------------------- #
 
@@ -198,6 +198,12 @@ for f_id in flights:
     losses_mahalanobis[f_id] = relative_mahala
 
 print(losses_mahalanobis)
+
+# ---------------- Block 4 ---------------- # 
+#              POI Detection                #
+# ----------------------------------------- #
+
+
 
 # Physics-ML model:
 
