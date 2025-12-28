@@ -176,7 +176,6 @@ for f_id in flights:
 # -------------------------------------------- #
 
 losses_mahalanobis = {}
-losses_euclidean = {}
 
 for f_id in flights:
     coords_raw = flights[f_id]["coords"]
@@ -186,10 +185,6 @@ for f_id in flights:
     preds = preds_raw[2:size-2]
     actuals = coords[2:size-2]
     residuals = preds - actuals
-
-    # Compute the euclidean loss:
-    eucl = np.linalg.norm(residuals, axis=1)
-    losses_euclidean[f_id] = eucl
 
     mean_res = np.mean(residuals, axis=0)
     centered = residuals - mean_res
@@ -202,9 +197,6 @@ for f_id in flights:
     mahalanobis = np.sqrt(mahalanobis_raw)
 
     losses_mahalanobis[f_id] = mahalanobis
-
-print(losses_mahalanobis)
-print(losses_euclidean)
 
 # Physics-ML model:
 
