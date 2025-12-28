@@ -3,9 +3,55 @@ import numpy as np
 import json
 import os
 
-    # -------------------- Block 1 ----------------- # 
-    #      Preprocessing with the flight data        #
-    # ---------------------------------------------- #
+# -------------------- Block 1 ----------------- # 
+#      Preprocessing with the flight data        #
+# ---------------------------------------------- #
+
+# Converting the coordinate systems:
+axis = 6378137.0
+flattening = 1 / 298.257223563
+eccentrity2 = flattening * (2 - flattening)
+
+def geodetic2ecef(lon, lat, hei):
+    lon = np.deg2rad(lon)
+    lat = np.deg2rad(lat)
+
+    N = axis / np.sqrt(1 - eccentrity2 * np.sin(lat)**2)
+
+    x = (N + hei) * np.cos(lat) * np.cos(lon)
+    y = (N + hei) * np.cos(lat) * np.sin(lon)
+    z = (N * (1 - eccentrity2) + hei) * np.sin(lat)
+
+    return np.array([x, y, z])
+
+def ecef2enu(xyz, ref_lon, ref_lat, ref_hei):
+    ref_xyz = geodetic2ecef(ref_lon, ref_lat, ref_hei)
+    lon = np.deg2rad(ref_lon)
+    lat = np.deg2rad(ref_lat)
+
+    sin_lat = np.sin(lat)
+    cos_lat = np.cos(lat)
+    sin_lon = np.sin(lon)
+    cos_lon = np.cos(lon)
+
+    R = np.array([
+        [-sin_lon, cos_lon, 0],
+        [-sin_lat*cos_lon, -sin_lat*sin_lon, cos_lat],
+        [cos_lat*cos_lon, cos_lat*sin_lon, sin_lat]
+    ])
+
+    return (xyz - ref_xyz) @ R.T
+
+def flight_conversion(coords):
+    ref_lon, ref_lat, ref_hei = coords[0]
+
+    ecef = np.array([
+        geodetic2ecef(lon, lat, hei)
+        for lon, lat, hei in coords
+    ])
+    enu = ecef2enu(ecef, ref_lon, ref_lat, ref_hei)
+
+    return enu
 
 folder_path = "D:/ADataBase/flights_data_geojson/2024-11-10/"
 files = [f for f in os.listdir(folder_path) if f.endswith(".geojson")]
@@ -20,7 +66,7 @@ for file_name in files:
         "dt": []
     })
 
-    with open(file_path, "r") as raw:
+    with open(file_path, "r", encoding="utf-8") as raw:
         geojson = json.load(raw)
 
     for feature in geojson["features"]:
@@ -32,64 +78,15 @@ for file_name in files:
 
         lon, lat, alt = geom["coordinates"]
         vx, vy, vz = map(float, props["velocity"].split())
-
-        # timestamp = datetime.fromisoformat(props["timestamp"])
         
         flights[f_id]["coords"].append([lon, lat, alt])
         flights[f_id]["vel"].append([vx, vy, vz])
         flights[f_id]["dt"].append(dt)
-        # flights[f_id]["time"].append(timestamp)
 
     for f_id in flights:
         flights[f_id]["coords"] = np.array(flights[f_id]["coords"])
         flights[f_id]["vel"] = np.array(flights[f_id]["vel"])
         flights[f_id]["dt"] = np.array(flights[f_id]["dt"])
-
-    # Converting the coordinate systems:
-    axis = 6378137.0
-    flattening = 1 / 298.257223563
-    eccentrity2 = flattening * (2 - flattening)
-
-    def geodetic2ecef(lon, lat, hei):
-        lon = np.deg2rad(lon)
-        lat = np.deg2rad(lat)
-
-        N = axis / np.sqrt(1 - eccentrity2 * np.sin(lat)**2)
-
-        x = (N + hei) * np.cos(lat) * np.cos(lon)
-        y = (N + hei) * np.cos(lat) * np.sin(lon)
-        z = (N * (1 - eccentrity2) + hei) * np.sin(lat)
-
-        return np.array([x, y, z])
-
-    def ecef2enu(xyz, ref_lon, ref_lat, ref_hei):
-        ref_xyz = geodetic2ecef(ref_lon, ref_lat, ref_hei)
-        lon = np.deg2rad(ref_lon)
-        lat = np.deg2rad(ref_lat)
-
-        sin_lat = np.sin(lat)
-        cos_lat = np.cos(lat)
-        sin_lon = np.sin(lon)
-        cos_lon = np.cos(lon)
-
-        R = np.array([
-            [-sin_lon, cos_lon, 0],
-            [-sin_lat*cos_lon, -sin_lat*sin_lon, cos_lat],
-            [cos_lat*cos_lon, cos_lat*sin_lon, sin_lat]
-        ])
-
-        return (xyz - ref_xyz) @ R.T
-
-    def flight_conversion(coords):
-        ref_lon, ref_lat, ref_hei = coords[0]
-
-        ecef = np.array([
-            geodetic2ecef(lon, lat, hei)
-            for lon, lat, hei in coords
-        ])
-        enu = ecef2enu(ecef, ref_lon, ref_lat, ref_hei)
-
-        return enu
         
     # ------------------ Block 2 ----------------- # 
     #            Predicting the position           #
@@ -100,6 +97,7 @@ for file_name in files:
 
     flight_alpha = {}
     physic_better = {}
+    coords = []
 
     for f_id in flights:
         coords_raw = flights[f_id]["coords"]
@@ -173,11 +171,9 @@ for file_name in files:
     losses_mahalanobis = {}
 
     for f_id in flights:
-        coords_raw = flights[f_id]["coords"]
         preds_raw = physic_better[f_id]
         dt = flights[f_id]["dt"]
         
-        coords = flight_conversion(coords_raw)
         size = len(coords)
 
         preds = preds_raw[2:size-2]
@@ -257,6 +253,8 @@ for file_name in files:
     poi_df.to_csv(poi_csv_path, index=False)
 
     print(f"POI CSV file saved to: {poi_csv_path}")
+
+print("Finished!!!")
 
 # Physics-ML model:
 # Sparse attention?
