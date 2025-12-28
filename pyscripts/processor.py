@@ -199,10 +199,13 @@ for f_id in flights:
     cov_inv = np.linalg.inv(cov)
 
     # Compute the mahalanobis loss:
-    mahalanobis_raw = np.sum((centered @ cov_inv) * centered, axis=1)
+    mahalanobis_raw = np.einsum('ij,ij->i', centered @ cov_inv, centered)
     mahalanobis = np.sqrt(mahalanobis_raw)
 
     losses_mahalanobis[f_id] = mahalanobis
+
+print(losses_mahalanobis)
+print(losses_euclidean)
 
 # Physics-ML model:
 
