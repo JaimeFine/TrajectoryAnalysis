@@ -85,17 +85,6 @@ def flight_conversion(coords):
     enu = ecef2enu(ecef, ref_lon, ref_lat, ref_hei)
 
     return enu
-
-def velocity_conversion(vel, lat):
-    lat_rad = np.deg2rad(lat)
-    
-    ve = vel[:,0] * (
-        1111412.84 * np.cos(lat_rad) - 93.5 * np.cos(3 * lat_rad)
-    )
-    vn = vel[:,1] * 111132.92
-    vu = vel[:,2]
-
-    return np.stack([ve, vn, vu], axis=1)
     
 # ------------------ Block 2 ----------------- # 
 #            Predicting the position           #
@@ -109,10 +98,9 @@ physic_better = {}
 
 for f_id in flights:
     coords_raw = flights[f_id]["coords"]
-    vel_raw = flights[f_id]["vel"]
+    vel = flights[f_id]["vel"]
     dt = flights[f_id]["dt"]
 
-    vel = velocity_conversion(vel_raw, coords_raw[:,1])
     coords = flight_conversion(coords_raw)
     size = len(coords)
 
@@ -120,15 +108,16 @@ for f_id in flights:
     a = np.zeros((size, 3))
 
     for i in range(1, size-1):
-        a[i] = (vel[i+1] - vel[i-1]) / ((dt[i-1] + dt[i]) * 60)
+        a[i] = (vel[i+1] - vel[i-1]) / ((dt[i-1] + dt[i]))
 
         speed = np.linalg.norm(vel[i])
         if speed > 1e-7:
-            k = np.linalg.norm(np.cross(vel[i], a)) / speed**3
+            k = np.linalg.norm(np.cross(vel[i], a[i])) / speed**3
             curvatures.append(k)
 
     curvatures = np.array(curvatures)
-    k95 = np.percentile(curvatures, 95)
+    k95_raw = np.percentile(curvatures, 95)
+    k95 = np.maximum(k95_raw, 1e-12)
 
     flight_alpha[f_id] = np.log(5) / k95
 
@@ -138,10 +127,10 @@ for f_id in flights:
         idx = [i-2, i-1, i+1, i+2]
 
         t0 = 0.0
-        t1 = dt[i-2] * 60
-        tm = (dt[i-2] + dt[i-1]) * 60
-        t2 = (dt[i-2] + dt[i-1] + dt[i]) * 60
-        t3 = (dt[i-2] + dt[i-1] + dt[i] + dt[i+1]) * 60
+        t1 = dt[i-2]
+        tm = (dt[i-2] + dt[i-1])
+        t2 = (dt[i-2] + dt[i-1] + dt[i])
+        t3 = (dt[i-2] + dt[i-1] + dt[i] + dt[i+1])
 
         t = np.array([t0, t1, t2, t3])
         p = coords[idx]
@@ -157,7 +146,8 @@ for f_id in flights:
         ], dtype=float)
 
         # Calculate the Constant-Acceleration prediction:
-        ca = coords[i-1] + vel[i-1] * 60 * dt[i-1] + a[i] * 30 * dt[i-1]**2
+        dt_sec = dt[i-1]
+        ca = coords[i-1] + vel[i-1] * dt_sec + 0.5 * a[i] * dt_sec**2
 
         # Local curvature:
         speed = np.linalg.norm(vel[i])
@@ -192,10 +182,10 @@ for f_id in flights:
     mean_res = np.mean(residuals, axis=0)
     centered = residuals - mean_res
 
-    mean_dt = np.mean(dt, axis=0) * 60
-    pred_dt = dt[1:-3]
+    mean_dt = float(np.mean(dt[:-1]))
+    pred_dt = np.asarray(dt[1:-3], dtype=np.float64)
     rel_dt = pred_dt / mean_dt
-    t_factor = np.sqrt(rel_dt)
+    t_factor = np.sqrt(rel_dt + 1e-12)
 
     cov = np.cov(centered, rowvar=False)
     cov_inv = np.linalg.inv(cov)
@@ -206,6 +196,8 @@ for f_id in flights:
     relative_mahala = mahalanobis / t_factor
 
     losses_mahalanobis[f_id] = relative_mahala
+
+print(losses_mahalanobis)
 
 # Physics-ML model:
 
