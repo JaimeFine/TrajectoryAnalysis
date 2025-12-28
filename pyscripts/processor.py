@@ -39,6 +39,8 @@ for f_id in flights:
     flights[f_id]["coords"] = np.array(flights[f_id]["coords"])
     flights[f_id]["vel"] = np.array(flights[f_id]["vel"])
     flights[f_id]["dt"] = np.array(flights[f_id]["dt"])
+
+# Converting the coordinate systems
     
 # ------------------ Block 2 ----------------- # 
 #            Computation heavy zone            #
@@ -78,15 +80,8 @@ is stupid!
 from scipy.interpolate import CubicHermiteSpline
 
 flight_alpha = {}
-
-for f_id in flights:
-    coords = flights[f_id]["coords"]
-    vel = flights[f_id]["vel"]
-    dt = flights[f_id]["dt"]
-
-    
-
 physic_better = {}
+
 for f_id in flights:
     coords = flights[f_id]["coords"]
     vel = flights[f_id]["vel"]
@@ -143,10 +138,23 @@ for f_id in flights:
         else:
             k = np.linalg.norm(np.cross(vel[i], a)) / (speed**3)
 
-        w = np.exp(-50 * k)
+        w = np.exp(-flight_alpha[f_id] * k)
         pred = w * ca + (1 - w) * spline
 
         physic_better[f_id][i] = pred
+
+"""
+Predictions:
+       [ 1.92588495e+04, -1.67535715e+04,  8.33351098e+04],
+       [ 2.39458001e+04, -2.09093802e+04,  9.65352975e+04],
+       [ 1.82348173e+04, -1.61653065e+04,  5.76233957e+04],
+       [ 4.94297431e+04, -6.95793030e+04,  1.34560978e+05],
+       [ 3.18711824e+04, -3.72383145e+04,  2.26000000e+04],
+       [ 1.21706109e+04, -4.83397406e+04,  5.14742306e+04],
+       [ 1.04023143e+04, -4.98191322e+04,  2.32394576e+04],
+       [ 4.85419442e+04, -9.10575205e+04,  2.34990668e+05],
+look better, at least
+"""
 
 # Physics-ML model:
 
