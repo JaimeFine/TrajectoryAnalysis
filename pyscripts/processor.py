@@ -180,8 +180,9 @@ losses_mahalanobis = {}
 for f_id in flights:
     coords_raw = flights[f_id]["coords"]
     preds_raw = physic_better[f_id]
-    coords = flight_conversion(coords_raw)
     dt = flights[f_id]["dt"]
+    
+    coords = flight_conversion(coords_raw)
     size = len(coords)
 
     preds = preds_raw[2:size-2]
@@ -191,8 +192,10 @@ for f_id in flights:
     mean_res = np.mean(residuals, axis=0)
     centered = residuals - mean_res
 
-    mean_dt = np.mean(dt, axis=0)
-    rel_dt = dt / mean_dt
+    mean_dt = np.mean(dt, axis=0) * 60
+    pred_dt = dt[1:-3]
+    rel_dt = pred_dt / mean_dt
+    t_factor = np.sqrt(rel_dt)
 
     cov = np.cov(centered, rowvar=False)
     cov_inv = np.linalg.inv(cov)
@@ -200,9 +203,9 @@ for f_id in flights:
     # Compute the mahalanobis loss:
     mahalanobis_raw = np.einsum('ij,ij->i', centered @ cov_inv, centered)
     mahalanobis = np.sqrt(mahalanobis_raw)
-    relative_mahala = mahalanobis / rel_dt[2:size-2]
+    relative_mahala = mahalanobis / t_factor
 
-    losses_mahalanobis[f_id] = mahalanobis
+    losses_mahalanobis[f_id] = relative_mahala
 
 # Physics-ML model:
 
