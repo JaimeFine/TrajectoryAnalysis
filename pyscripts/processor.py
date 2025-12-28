@@ -98,7 +98,7 @@ def velocity_conversion(vel, lat):
     return np.stack([ve, vn, vu], axis=1)
     
 # ------------------ Block 2 ----------------- # 
-#            Computation heavy zone            #
+#            Predicting the position           #
 # -------------------------------------------- #
 
 # Pure physics-based model ----- advanced:
@@ -171,6 +171,38 @@ for f_id in flights:
         pred = w * ca + (1 - w) * spline
 
         physic_better[f_id][i] = pred
+
+# ------------------ Block 3 ----------------- # 
+#          Computation for the loss            #
+# -------------------------------------------- #
+
+losses_mahalanobis = {}
+losses_euclidean = {}
+
+for f_id in flights:
+    coords_raw = flights[f_id]["coords"]
+    preds_raw = physic_better[f_id]
+    coords = flight_conversion(coords_raw)
+
+    preds = preds_raw[2:size-2]
+    actuals = coords[2:size-2]
+    residuals = preds - actuals
+
+    # Compute the euclidean loss:
+    eucl = np.linalg.norm(residuals, axis=1)
+    losses_euclidean[f_id] = eucl
+
+    mean_res = np.mean(residuals, axis=0)
+    centered = residuals - mean_res
+
+    cov = np.cov(centered, rowvar=False)
+    cov_inv = np.linalg.inv(cov)
+
+    # Compute the mahalanobis loss:
+    mahalanobis_raw = np.sum((centered @ cov_inv) * centered, axis=1)
+    mahalanobis = np.sqrt(mahalanobis_raw)
+
+    losses_mahalanobis[f_id] = mahalanobis
 
 # Physics-ML model:
 
