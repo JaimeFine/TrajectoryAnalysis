@@ -55,10 +55,20 @@ def flight_conversion(coords):
 
 folder_path = "D:/ADataBase/flights_data_geojson/2024-11-10/"
 files = [f for f in os.listdir(folder_path) if f.endswith(".geojson")]
+output_folder = "D:/ADataBase/poi_data_csv/"
 
 for file_name in files:
     file_path = os.path.join(folder_path, file_name)
     print(f"Processing with {file_path} !!!")
+
+    poi_csv_path = os.path.join(
+        output_folder,
+        os.path.splitext(file_name)[0] + "_poi.csv"
+    )
+
+    if os.path.exists(poi_csv_path):
+        print(f"Skipping {file_name}, already processed.")
+        continue
 
     flights = defaultdict(lambda: {
         "coords": [],
@@ -86,7 +96,7 @@ for file_name in files:
     for f_id in flights:
         flights[f_id]["coords"] = np.array(flights[f_id]["coords"])
         flights[f_id]["vel"] = np.array(flights[f_id]["vel"])
-        flights[f_id]["dt"] = np.array(flights[f_id]["dt"])
+        flights[f_id]["dt"] = np.array(flights[f_id]["dt"][:-1], dtype=float)
         
     # ------------------ Block 2 ----------------- # 
     #            Predicting the position           #
@@ -173,6 +183,7 @@ for file_name in files:
     for f_id in flights:
         preds_raw = physic_better[f_id]
         dt = flights[f_id]["dt"]
+        coords = flight_conversion(flights[f_id]["coords"])
         
         size = len(coords)
 
@@ -183,9 +194,9 @@ for file_name in files:
         mean_res = np.mean(residuals, axis=0)
         centered = residuals - mean_res
 
-        mean_dt = float(np.mean(dt[:-1]))
-        pred_dt = np.asarray(dt[1:-3], dtype=np.float64)
-        rel_dt = pred_dt / mean_dt
+        mean_dt = float(np.mean(dt))
+        pred_dt = np.asarray(dt[1:-2], dtype=np.float64)
+        rel_dt = pred_dt / (mean_dt + 1e-12)
         t_factor = np.sqrt(rel_dt + 1e-12)
 
         cov = np.cov(centered, rowvar=False)
@@ -242,10 +253,6 @@ for file_name in files:
             score = score_norm[idx]
             pois.append([f_id, idx, lon, lat, hei, score])
 
-    poi_csv_path = os.path.join(
-        "D:/ADataBase/poi_data_csv/",
-        os.path.splitext(file_name)[0] + "_poi.csv"
-    )
     poi_df = pd.DataFrame(pois, columns = [
         "flight_id", "point_index", "lon",
         "lat", "alt", "poi_score"
