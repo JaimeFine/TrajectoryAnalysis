@@ -101,37 +101,6 @@ def velocity_conversion(vel, lat):
 #            Computation heavy zone            #
 # -------------------------------------------- #
 
-# Pure physics-based model ----- basic:
-physic_normal = {}
-for f_id in flights:
-    coords_raw = flights[f_id]["coords"]
-    vel = flights[f_id]["vel"]
-    dt = flights[f_id]["dt"]
-
-    coords = flight_conversion(coords_raw)
-    size = len(coords) - 1
-    physic_normal[f_id] = np.zeros((size, 3), dtype = float)
-
-    for i in range(size):
-        # The phsic_matrix's first column is the prediction for 2nd position!!!
-        dx = coords[i] + vel[i] * dt[i]
-        physic_normal[f_id][i] = dx
-
-"""
-Obviously, the output:
-...
-[ 3.93346485e+04, -9.70215903e+04,  3.61000000e+04],
-[ 1.97690042e+04, -4.85948999e+04,  3.61000000e+04],
-[ 3.93348216e+04, -9.70219568e+04,  3.61000000e+04],
-[-5.31731053e+04, -7.33233705e+04,  3.61000000e+04],
-[-3.95573973e+04, -1.84714838e+04,  3.99400000e+04],
-[-3.95575754e+04, -1.84716463e+04,  3.61000000e+04],
-[-3.42670276e+04, -1.60046179e+04,  3.61000000e+04],
-[-1.35313544e+04, -6.92548368e+03,  3.61000000e+04],
-...
-is stupid!
-"""
-
 # Pure physics-based model ----- advanced:
 from scipy.interpolate import CubicHermiteSpline
 
@@ -202,19 +171,6 @@ for f_id in flights:
         pred = w * ca + (1 - w) * spline
 
         physic_better[f_id][i] = pred
-
-"""
-Predictions:
-       [ 1.92588495e+04, -1.67535715e+04,  8.33351098e+04],
-       [ 2.39458001e+04, -2.09093802e+04,  9.65352975e+04],
-       [ 1.82348173e+04, -1.61653065e+04,  5.76233957e+04],
-       [ 4.94297431e+04, -6.95793030e+04,  1.34560978e+05],
-       [ 3.18711824e+04, -3.72383145e+04,  2.26000000e+04],
-       [ 1.21706109e+04, -4.83397406e+04,  5.14742306e+04],
-       [ 1.04023143e+04, -4.98191322e+04,  2.32394576e+04],
-       [ 4.85419442e+04, -9.10575205e+04,  2.34990668e+05],
-look better, at least
-"""
 
 # Physics-ML model:
 
