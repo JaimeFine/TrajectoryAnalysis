@@ -40,7 +40,40 @@ for f_id in flights:
     flights[f_id]["vel"] = np.array(flights[f_id]["vel"])
     flights[f_id]["dt"] = np.array(flights[f_id]["dt"])
 
-# Converting the coordinate systems
+# Converting the coordinate systems:
+axis = 6378137.0
+flattening = 1 / 298.257223563
+eccentrity2 = flattening * (2 - flattening)
+
+def geodetic2ecef(lon, lat, hei):
+    lon = np.deg2rad(lon)
+    lat = np.deg2rad(lat)
+
+    N = axis / np.sqrt(1 - eccentrity2 * np.sin(lat)**2)
+
+    x = (N + hei) * np.cos(lat) * np.cos(lon)
+    y = (N + hei) * np.cos(lat) * np.sin(lon)
+    z = (N * (1 - eccentrity2) + hei) * np.sin(lat)
+
+    return np.array([x, y, z])
+
+def ecef2enu(xyz, lon, lat, hei):
+    ref_xyz = geodetic2ecef(lon, lat, hei)
+    lon = np.deg2rad(lon)
+    lat = np.deg2rad(lat)
+
+    sin_lat = np.sin(lat)
+    cos_lat = np.cos(lat)
+    sin_lon = np.sin(lon)
+    cos_lon = np.cos(lon)
+
+    R = np.array([
+        [-sin_lon, cos_lon, 0],
+        [-sin_lat*cos_lon, -sin_lat*sin_lon, cos_lat],
+        [cos_lat*cos_lon, cos_lat*sin_lon, sin_lat]
+    ])
+
+    return (xyz - ref_xyz) @ R.T
     
 # ------------------ Block 2 ----------------- # 
 #            Computation heavy zone            #
