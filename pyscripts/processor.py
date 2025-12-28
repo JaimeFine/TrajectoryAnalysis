@@ -201,6 +201,9 @@ for f_id in flights:
 #            Export losses to CSV           #
 # ----------------------------------------- #
 
+# This is only for inspection of the current progress
+
+"""
 import csv
 
 rows = []
@@ -215,11 +218,37 @@ with open(csv_path, "w", newline="") as f:
     writer.writerows(rows)
 
 print(f"CSV file saved to {csv_path}")
-
+"""
 
 # ---------------- Block 5 ---------------- # 
 #              POI Detection                #
 # ----------------------------------------- #
+
+import pandas as pd
+
+pois = []
+
+for f_id, losses in losses_mahalanobis.items():
+    coords = flights[f_id]["coords"]
+
+    score_norm = (losses - losses.min()) / (losses.max() - losses.min() + 1e-12)
+
+    threshold = 0.75
+    poi_id = np.where(score_norm >= threshold)[0]
+
+    for idx in poi_id:
+        lon, lat, hei = coords[idx + 2]
+        score = score_norm[idx]
+        pois.append([f_id, idx, lon, lat, hei, score])
+
+poi_csv_path = "D:/ADataBase/poi_data_csv/"
+poi_df = pd.DataFrame(pois, columns = [
+    "flight_id", "point_index", "lon",
+    "lat", "alt", "poi_score"
+])
+poi_df.to_csv(poi_csv_path, index=False)
+
+print(f"POI CSV file saved to: {poi_csv_path}")
 
 # I am thinking about putting all this in RStudio
 # For a better visualization and a faster prototyping
