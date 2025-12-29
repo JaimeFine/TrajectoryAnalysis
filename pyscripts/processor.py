@@ -53,7 +53,7 @@ def flight_conversion(coords):
 
     return enu
 
-folder_path = "D:/ADataBase/flights_data_geojson/2024-11-10/"
+folder_path = "D:/ADataBase/flights_data_geojson/2024-12-12/"
 files = [f for f in os.listdir(folder_path) if f.endswith(".geojson")]
 output_folder = "D:/ADataBase/poi_data_csv/"
 
@@ -67,7 +67,7 @@ for file_name in files:
     )
 
     if os.path.exists(poi_csv_path):
-        print(f"Skipping {file_name}, already processed.")
+        print(f"\033[92mSkipping {file_name}, already processed.\033[0m")
         continue
 
     flights = defaultdict(lambda: {
@@ -108,6 +108,7 @@ for file_name in files:
     flight_alpha = {}
     physic_better = {}
     coords = []
+    print("Predicting the position...")
 
     for f_id in flights:
         coords_raw = flights[f_id]["coords"]
@@ -129,12 +130,18 @@ for file_name in files:
                 curvatures.append(k)
 
         curvatures = np.array(curvatures)
+        if len(curvatures) == 0:
+            print(f"\033[91mSkipping flight {f_id}: no valid curvatures\033[0m")
+            continue
         k95_raw = np.percentile(curvatures, 95)
         k95 = np.maximum(k95_raw, 1e-12)
 
         flight_alpha[f_id] = np.log(5) / k95
 
         physic_better[f_id] = np.zeros((size, 3), dtype = float)
+        if np.any(dt <= 0):
+            print(f"\033[91mSkipping flight {f_id}: non-monotonic timestamps\033[0m")
+            continue
 
         for i in range(2, size-2):
             idx = [i-2, i-1, i+1, i+2]
@@ -179,8 +186,11 @@ for file_name in files:
     # -------------------------------------------- #
 
     losses_mahalanobis = {}
+    print("Computing the loss...")
 
     for f_id in flights:
+        if f_id not in physic_better:
+            continue
         preds_raw = physic_better[f_id]
         dt = flights[f_id]["dt"]
         coords = flight_conversion(flights[f_id]["coords"])
@@ -188,6 +198,9 @@ for file_name in files:
         size = len(coords)
 
         preds = preds_raw[2:size-2]
+        if len(preds) == 0:
+            print(f"\033[91mSkipping flight {f_id}: not enough points for prediction.\033[0m")
+            continue
         actuals = coords[2:size-2]
         residuals = preds - actuals
 
@@ -199,7 +212,7 @@ for file_name in files:
         rel_dt = pred_dt / (mean_dt + 1e-12)
         t_factor = np.sqrt(rel_dt + 1e-12)
 
-        cov = np.cov(centered, rowvar=False)
+        cov = np.cov(centered, rowvar=False) + np.eye(3) * 1e-5 # Tikhonov
         cov_inv = np.linalg.inv(cov)
 
         # Compute the mahalanobis loss:
@@ -239,8 +252,13 @@ for file_name in files:
     import pandas as pd
 
     pois = []
+    print("Detecting POIs...")
 
     for f_id, losses in losses_mahalanobis.items():
+        if len(losses) == 0:
+            print(f"\033[91mSkipping POI detection for flight {f_id}: no losses computed.\033[0m")
+            continue
+
         coords = flights[f_id]["coords"]
 
         score_norm = (losses - losses.min()) / (losses.max() - losses.min() + 1e-12)
@@ -259,9 +277,9 @@ for file_name in files:
     ])
     poi_df.to_csv(poi_csv_path, index=False)
 
-    print(f"POI CSV file saved to: {poi_csv_path}")
+    print(f"\033[92mPOI CSV file saved to: {poi_csv_path}\033[0m")
 
-print("Finished!!!")
+print("\033[92mFinished!!!\033[0m")
 
 # Physics-ML model:
 # Sparse attention?
