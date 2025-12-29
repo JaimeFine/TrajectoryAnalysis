@@ -24,7 +24,6 @@ Given:
 First compute the prime vertical radius of curvature:
 
 $$
-\tag{1.1.1}
 N(\varphi) = \frac{a}{\sqrt{1 - e^2 \sin^2\varphi}}
 $$
 
