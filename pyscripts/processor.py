@@ -53,7 +53,7 @@ def flight_conversion(coords):
 
     return enu
 
-folder_path = "D:/ADataBase/flights_data_geojson/2024-12-12/"
+folder_path = "D:/ADataBase/flights_data_geojson/2024-12-13/"
 files = [f for f in os.listdir(folder_path) if f.endswith(".geojson")]
 output_folder = "D:/ADataBase/poi_data_csv/"
 
