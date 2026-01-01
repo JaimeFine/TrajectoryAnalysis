@@ -99,3 +99,21 @@ leaflet(pois_mini) %>%
     fillOpacity = 0.4, radius = 1,
     popup = "POI"
   )
+
+china_poi$lon <- st_coordinates(china_poi)[,1]
+china_poi$lat <- st_coordinates(china_poi)[,2]
+
+china_poi_clean <- china_poi |>
+  st_drop_geometry() |>
+  dplyr::select(
+    flight_id,
+    point_index,
+    lon,
+    lat,
+    alt,
+    poi_score
+  )
+
+write.csv(china_poi_clean, "china_poi.csv", row.names=FALSE)
+
+
