@@ -1,9 +1,5 @@
 import numpy as np
-from numpy.linalg import inv
-from sklearn.neighbors import NearestNeighbors
-from scipy.stats import multivariate_normal
 import pandas as pd
-import hdbscan
 import faiss
 
 # -------------- Define the Functions ---------------- #
@@ -30,12 +26,17 @@ def gaussian_kernel(x, xi, sigma_inv):
 
 def adf(x, k=100, sigma0=500.0):
     _, idx = index.search(x.reshape(1, 3), k)
+    neighbors = pos[idx[0]]
+    scores = s[idx[0]]
 
-    Func = 0.0
-    for i in idx[0]:
-        sigma = sigma0 / (s[i] + 1e-6)
-        sigma_inv = np.eye(3) / (sigma ** 2)
-        Func += s[i] * gaussian_kernel(x, pos[i], sigma_inv)
+    diff = neighbors - x
+
+    sigma = sigma0 / (scores + 1e-6)
+    inverse = 1.0 / (sigma ** 2)
+
+    quadratic = np.sum(diff ** 2 * inverse[:, None], axis=1)
+    Func = np.sum(scores * np.exp(-0.5 * quadratic))
+
     return Func
 
 # ------------- Importing Data -------------- #
@@ -46,13 +47,20 @@ pos = np.vstack([
     geodetic2ecef(lon, lat, alt)
     for lon, lat, alt in df[["lon", "lat", "alt"]].to_numpy()
 ]).astype("float32")
-s = df["poi_score"]
+
+s = df["poi_score"].to_numpy()
 n = len(pos)
 
-index = faiss.IndexFlatL2(3)
+# ------------- Creating ADF --------------- #
+
+quantizer = faiss.IndexFlatL2(3)
+index = faiss.IndexIVFFlat(quantizer, 3, 4096)
+
+index.train(pos)
 index.add(pos)
 
-# ------------- Form the Clusters --------------- #
+index.nprobe = 16
+
 
 Fvalues = np.array([
     adf(p)
@@ -61,3 +69,21 @@ Fvalues = np.array([
 
 df["ADF"] = Fvalues
 
+
+# ----------------- Benchmarking --------------- #
+
+import time
+Q = 500
+t0 = time.time()
+for p in pos[:Q]:
+    _ = adf(p)
+
+
+t1 = time.time()
+print("Time per query:", (t1 - t0) / Q, "seconds")
+
+"""
+Note:
+    I switched from Direct FlatL2 to IVF-Flat as the suggestion from AI,
+    and the Time per query reduced from 0.00703 to 0.000107
+"""
