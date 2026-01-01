@@ -6,17 +6,17 @@ import faiss
 
 axis = 6378137.0
 flattening = 1 / 298.257223563
-eccentrity2 = flattening * (2 - flattening)
+eccentricity2 = flattening * (2 - flattening)
 
 def geodetic2ecef(lon, lat, hei):
     lon = np.deg2rad(lon)
     lat = np.deg2rad(lat)
 
-    N = axis / np.sqrt(1 - eccentrity2 * np.sin(lat)**2)
+    N = axis / np.sqrt(1 - eccentricity2 * np.sin(lat)**2)
 
     x = (N + hei) * np.cos(lat) * np.cos(lon)
     y = (N + hei) * np.cos(lat) * np.sin(lon)
-    z = (N * (1 - eccentrity2) + hei) * np.sin(lat)
+    z = (N * (1 - eccentricity2) + hei) * np.sin(lat)
 
     return np.array([x, y, z])
 
