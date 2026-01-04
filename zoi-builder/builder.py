@@ -74,7 +74,6 @@ print("Time per query:", (t1 - t0) / Q, "seconds")
 #               ZOI Extraction               #
 # ------------------------------------------ #
 
-from gensim.models import Word2Vec
 import json
 
 with open("D:/ADataBase/flights_data_geojson/2024-12-16/2024-12-16-CTU_processed.geojson") as flight:

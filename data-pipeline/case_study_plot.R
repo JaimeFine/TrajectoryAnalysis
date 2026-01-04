@@ -11,67 +11,69 @@ poi <- st_as_sf(
   poi, coords = c("lon", "lat"), crs = 4326
 )
 
-poi_chengdu <- st_intersection(poi, chengdu)
+bbox <- st_bbox(chengdu)
+poi_chengdu <- poi %>%
+  filter(
+    st_coordinates(.)[,1] >= bbox["xmin"] &
+      st_coordinates(.)[,1] <= bbox["xmax"] &
+      st_coordinates(.)[,2] >= bbox["ymin"] &
+      st_coordinates(.)[,2] <= bbox["ymax"]
+  )
+
+track_filtered <- track[track$ADF <= 15,]
 
 pal_adf <- colorNumeric(
   palette = "viridis",
-  domain = track$ADF
+  domain = track_filtered$ADF
 )
-
+track
 m <- leaflet() %>%
-  addProviderTiles("CartoDB.DarkMatter")
-
-m <- m %>%
+  addProviderTiles("CartoDB.DarkMatter") %>%
+  # POIs
   addCircleMarkers(
-    data = poi_vis,
-    lng = ~lon,
-    lat = ~lat,
+    data = poi_chengdu,
+    lng = ~st_coordinates(poi_chengdu)[,1],
+    lat = ~st_coordinates(poi_chengdu)[,2],
     radius = 1,
     color = "gray",
     opacity = 0.15,
     fillOpacity = 0.15,
     group = "POIs"
-  )
-
-m <- m %>%
+  ) %>%
+  # ZOIs
   addCircleMarkers(
-    data = filter(track, ZOI == 1),
+    data = filter(track_filtered, ZOI == 1),
     lng = ~lon,
     lat = ~lat,
     radius = 1,
     color = "red",
     fillOpacity = 1.0,
     group = "ZOI"
-  )
-
-m <- m %>%
+  ) %>%
+  # ADF Field
   addCircleMarkers(
     data = track,
     lng = ~lon,
     lat = ~lat,
-    radius = 3,
+    radius = 1,
     color = ~pal_adf(ADF),
     stroke = FALSE,
     fillOpacity = 0.8,
     group = "ADF"
-  )
-
-
-m <- m %>%
+  ) %>%
+  # Trajectory
   addPolylines(
-    lng = track$lon,
-    lat = track$lat,
+    lng = track_filtered$lon,
+    lat = track_filtered$lat,
     color = "white",
     weight = 2,
     opacity = 0.8,
     group = "Trajectory"
-  )
-
-m <- m %>%
+  ) %>%
   addLegend(
     position = "bottomright",
     pal = pal_adf,
-    values = track$ADF,
+    values = track_filtered$ADF,
     title = "ADF Value",
     opacity = 1
   ) %>%
