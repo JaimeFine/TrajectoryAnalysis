@@ -1,8 +1,6 @@
-# Physics-informed Semantic Airspace Infrastructure Discovery From Trajectory Data
+# Attention in Geometry: Scalable Spatial Modeling via Adaptive Density Fields and FAISS-Accelerated Kernels
 
 > This project is still in progress
-> 
-> The current version is only a sketch
 
 ## Project Goal
 
