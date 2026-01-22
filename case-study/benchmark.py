@@ -25,11 +25,36 @@ pairs = tree.query_pairs(r=max_dist)
 print(f"[{time.perf_counter()-t_start:.2f}s] Building Graph with {len(pairs)} potential edges...")
 G = nx.Graph()
 G.add_nodes_from(range(len(df)))
+
+log_interval = 100  # Print an update every 100 edges
+count = 0
+total_pairs = len(pairs)
+chunk_start = time.perf_counter()
 for i, j in pairs:
+    count += 1
+    
+    # Core Logic
     dist = np.linalg.norm(coords[i] - coords[j])
     weight = min(adf_values[i], adf_values[j]) * np.exp(-dist / sigma)
+    
     if weight > 0:
         G.add_edge(i, j, weight=weight)
+    
+    # --- THE LIVE BENCHMARK LOOP ---
+    if count % log_interval == 0 or count == total_pairs:
+        now = time.perf_counter()
+        elapsed = now - chunk_start
+        speed = log_interval / elapsed if elapsed > 0 else 0
+        percent = (count / total_pairs) * 100
+        
+        print(f"{percent:>13.1f}% | {count:>18} | {speed:>14.0f}")
+        
+        # Reset chunk timer
+        chunk_start = time.perf_counter()
+
+t_graph = time.perf_counter() - t0
+print("-" * 60)
+print(f"Graph construction complete in {t_graph:.2f}s")
 
 print(f"[{time.perf_counter()-t_start:.2f}s] Running Infomap...")
 infomap_wrapper = Infomap("--two-level --silent")
