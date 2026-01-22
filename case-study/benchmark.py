@@ -17,6 +17,7 @@ coords = df[['lon', 'lat']].values
 adf_values = df['ADF'].values
 tree = cKDTree(coords)
 
+t0 = time.perf_counter()
 print(f"[{time.perf_counter()-t_start:.2f}s] Searching for neighbors...")
 sigma = 0.01 
 max_dist = sigma * 5
