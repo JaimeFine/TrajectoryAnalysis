@@ -2,9 +2,12 @@ import pandas as pd
 import numpy as np
 import networkx as nx
 from infomap import Infomap
-from scipy.spatial import cKDTree, ConvexHull
+from scipy.spatial import cKDTree
 import matplotlib.pyplot as plt
 import time
+import alphashape
+import shapely.geometry as geom
+import geopandas as gpd
 
 # --- INITIAL STEPS ---
 t_start = time.perf_counter()
@@ -64,42 +67,46 @@ for u, v, data in G.edges(data=True):
 infomap_wrapper.run()
 
 communities = {node.node_id: node.module_id for node in infomap_wrapper.nodes}
-df['community'] = df.index.map(communities)
 
-# --- LIVE HULL BENCHMARKING ---
+# FIX 1: Map the IDs and fill missing ones with -1 (isolated points)
+df['community'] = df.index.map(communities).fillna(-1)
+
+# --- 5. LIVE HULL BENCHMARKING ---
 print("\n" + "="*50)
 print(f"{'ZOI ID':<10} | {'Points':<10} | {'Compute Time':<15}")
 print("-" * 50)
 
 community_hulls = {}
-unique_comms = df['community'].unique()
+# FIX 2: Only look at valid communities (ignore -1 if you don't want hulls for noise)
+unique_comms = [c for c in df['community'].unique() if c != -1]
+
 hull_start_time = time.perf_counter()
 
+alpha = 0.02  # tune for scale (smaller alpha = tighter around points)
+community_polygons = {}
 for comm_id in unique_comms:
     iter_start = time.perf_counter()
     
-    points = df[df['community'] == comm_id][['lon', 'lat']].values
+    points = df[df['community'] == comm_id][['lon','lat']].values
     num_points = len(points)
     
-    if num_points >= 3:
-        hull = ConvexHull(points)
-        community_hulls[comm_id] = points[hull.vertices]
+    if num_points >= 4:
+        poly = alphashape.alphashape(points, alpha)
+        community_polygons[comm_id] = poly
     else:
-        community_hulls[comm_id] = points
+        # For very small clusters, just use points as geometry
+        community_polygons[comm_id] = geom.MultiPoint(points)
     
     iter_end = time.perf_counter()
-    # PRINT RESULT IMMEDIATELY AFTER EACH CLUSTER
     print(f"{int(comm_id):<10} | {num_points:<10} | {iter_end - iter_start:>14.6f}s")
-
+    
 print("-" * 50)
 print(f"Total Hull Calculation Time: {time.perf_counter() - hull_start_time:.4f}s")
 print("="*50 + "\n")
 
-# --- PLOTTING ---
-print(f"[{time.perf_counter()-t_start:.2f}s] Generating Plot...")
-plt.figure(figsize=(10,8))
-for comm_id, hull_points in community_hulls.items():
-    plt.fill(hull_points[:,0], hull_points[:,1], alpha=0.3)
-plt.scatter(df['lon'], df['lat'], c='k', s=10, alpha=0.1)
-plt.title("Live-Benchmarked ZOIs")
-plt.show()
+gdf_list = []
+for comm_id, poly in community_polygons.items():
+    gdf_list.append(gpd.GeoDataFrame({'community':[comm_id]}, geometry=[poly]))
+
+gdf = pd.concat(gdf_list, ignore_index=True)
+gdf.to_file("zoi_polygons.geojson", driver="GeoJSON")
