@@ -72,7 +72,7 @@ unique_comms = [c for c in df['community'].unique() if c != -1]
 
 hull_start_time = time.perf_counter()
 
-alpha = 0.01  # tune for scale (smaller alpha = tighter around points)
+alpha = 0.04  # tune for scale (smaller alpha = tighter around points)
 
 def compute_hull(comm_id):
     iter_start = time.perf_counter()
