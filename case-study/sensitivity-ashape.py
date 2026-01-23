@@ -8,7 +8,6 @@ import time
 import alphashape
 import shapely.geometry as geom
 import geopandas as gpd
-import multiprocessing as mp
 
 # --- INITIAL STEPS ---
 t_start = time.perf_counter()
@@ -31,21 +30,31 @@ print(f"[{time.perf_counter()-t_start:.2f}s] Building Graph with {len(pairs)} po
 G = nx.Graph()
 G.add_nodes_from(range(len(df)))
 
-# Vectorized edge computation
-if pairs:
-    pair_array = np.array(list(pairs))
-    i_arr, j_arr = pair_array.T
-    coords_i = coords[i_arr]
-    coords_j = coords[j_arr]
-    dists = np.linalg.norm(coords_i - coords_j, axis=1)
-    adf_mins = np.minimum(adf_values[i_arr], adf_values[j_arr])
-    weights = adf_mins * np.exp(-dists / sigma)
-    mask = weights > 0
-    edge_list = list(zip(i_arr[mask], j_arr[mask], weights[mask]))
-else:
-    edge_list = []
-
-G.add_weighted_edges_from(edge_list)
+log_interval = 100  # Print an update every 100 edges
+count = 0
+total_pairs = len(pairs)
+chunk_start = time.perf_counter()
+for i, j in pairs:
+    count += 1
+    
+    # Core Logic
+    dist = np.linalg.norm(coords[i] - coords[j])
+    weight = min(adf_values[i], adf_values[j]) * np.exp(-dist / sigma)
+    
+    if weight > 0:
+        G.add_edge(i, j, weight=weight)
+    
+    # --- THE LIVE BENCHMARK LOOP ---
+    if count % log_interval == 0 or count == total_pairs:
+        now = time.perf_counter()
+        elapsed = now - chunk_start
+        speed = log_interval / elapsed if elapsed > 0 else 0
+        percent = (count / total_pairs) * 100
+        
+        print(f"{percent:>13.1f}% | {count:>18} | {speed:>14.0f}")
+        
+        # Reset chunk timer
+        chunk_start = time.perf_counter()
 
 t_graph = time.perf_counter() - t0
 print("-" * 60)
@@ -67,30 +76,29 @@ print("\n" + "="*50)
 print(f"{'ZOI ID':<10} | {'Points':<10} | {'Compute Time':<15}")
 print("-" * 50)
 
+community_hulls = {}
 # FIX 2: Only look at valid communities (ignore -1 if you don't want hulls for noise)
 unique_comms = [c for c in df['community'].unique() if c != -1]
 
 hull_start_time = time.perf_counter()
 
 alpha = 0.04  # tune for scale (smaller alpha = tighter around points)
-
-def compute_hull(comm_id):
+community_polygons = {}
+for comm_id in unique_comms:
     iter_start = time.perf_counter()
+    
     points = df[df['community'] == comm_id][['lon','lat']].values
     num_points = len(points)
+    
     if num_points >= 4:
         poly = alphashape.alphashape(points, alpha)
+        community_polygons[comm_id] = poly
     else:
-        poly = geom.MultiPoint(points)
+        # For very small clusters, just use points as geometry
+        community_polygons[comm_id] = geom.MultiPoint(points)
+    
     iter_end = time.perf_counter()
     print(f"{int(comm_id):<10} | {num_points:<10} | {iter_end - iter_start:>14.6f}s")
-    return (comm_id, poly)
-
-# Parallelize hull computation
-with mp.Pool(processes=mp.cpu_count()) as pool:
-    results = pool.map(compute_hull, unique_comms)
-
-community_polygons = dict(results)
 
 print("-" * 50)
 print(f"Total Hull Calculation Time: {time.perf_counter() - hull_start_time:.4f}s")
@@ -105,4 +113,4 @@ for comm_id, poly in community_polygons.items():
     ))
 
 gdf = pd.concat(gdf_list, ignore_index=True)
-gdf.to_file("zoi_polygons_low.geojson", driver="GeoJSON")
+gdf.to_file("zoi_polygons_high.geojson", driver="GeoJSON")
