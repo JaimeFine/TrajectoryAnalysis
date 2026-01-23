@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-import networkx as nx
 from infomap import Infomap
 from scipy.spatial import cKDTree
 import time
@@ -25,7 +24,7 @@ for s_val in sigma_values:
     max_dist = s_val * 5
     pairs = tree.query_pairs(r=max_dist)
     
-    # B. Vectorized Graph Construction
+    # B. Vectorized Edge Computation
     if pairs:
         pair_array = np.array(list(pairs))
         i_arr, j_arr = pair_array.T
@@ -39,13 +38,9 @@ for s_val in sigma_values:
     else:
         edge_list = []
     
-    G = nx.Graph()
-    G.add_nodes_from(range(len(df)))
-    G.add_weighted_edges_from(edge_list)
-    
     # C. Infomap Community Detection
     infomap_wrapper = Infomap("--two-level --silent")
-    for u, v, w in G.edges(data='weight'):
+    for u, v, w in edge_list:
         infomap_wrapper.add_link(u, v, w)
     
     infomap_wrapper.run()
