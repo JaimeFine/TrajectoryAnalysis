@@ -1,7 +1,7 @@
 library(ggplot2)
 library(dplyr)
 
-data <- read.csv("sigma_sensitivity_report.csv")
+data <- read.csv("sigma_sensitivity_report_meters.csv")
 
 ggplot(data, aes(x = sigma, y = num_communities)) +
   geom_line(color = "darkgreen", linewidth = 1) +
