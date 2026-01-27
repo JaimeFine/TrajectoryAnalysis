@@ -77,10 +77,9 @@ for comm_id in unique_comms:
     if num_points >= 4:
         kde = FFTKDE(bw=500).fit(X, weights=weights) # same to the ADF sigma
         grid, density = kde.evaluate(grid_points=1024)
-        _, point_density = kde.evaluate(X)
 
-        rho = 0.9   # Adjustable
-        threshold = np.min(point_density) * rho
+        eps = 1e-12
+        threshold = np.min(density) + eps
 
         n = int(np.sqrt(len(density)))
         dens_grid = density.reshape(n, n)
@@ -109,8 +108,16 @@ gdf_list = []
 
 for comm_id, polys in community_polygons.items():
     t_comm = time.perf_counter()
+
+    mask = (np.array(communities) == comm_id)
+    X = coords_m[mask]
+    xmin, ymin = X.min(axis=0)
+    xmax, ymax = X.max(axis=0)
+    diag = np.sqrt((xmax - xmin)**2 + (ymax - ymin)**2)
+    extension_distance = 0.05 * diag    # In this case, select 5% of extension
+
     for coords in polys:
-        line = LineString(coords)
+        line = LineString(coords).buffer(extension_distance)
         gdf_list.append(
             gpd.GeoDataFrame(
                 {'community': [comm_id]},
