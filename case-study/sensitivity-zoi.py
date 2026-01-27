@@ -94,7 +94,7 @@ def zoi_masking(track, alpha):
 track_converted = trajectory2ecef(track_coords)
 track_adf = get_adf_value(track_converted)
 
-alphas = [1.1, 1.2, 1.3, 1.4, 1.5]
+alphas = [1.3, 1.1, 1.2, 1.4, 1.5]
 results = []
 
 for a in alphas:
@@ -109,6 +109,7 @@ for a in alphas:
     })
 
     t_start = time.perf_counter()
+    df = df[df["ZOI"] == 1]
 
     # --- CONVERT TO GEOPANDAS + PROJECT TO METERS ---
     gdf_points = gpd.GeoDataFrame(

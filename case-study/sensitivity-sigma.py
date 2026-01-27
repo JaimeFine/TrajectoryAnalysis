@@ -8,6 +8,8 @@ import geopandas as gpd # Added for projection
 # --- 1. INITIAL SETUP ---
 df = pd.read_csv("C:/Users/13647/OneDrive/Desktop/MiMundo/Projects/TrajectoryAnalysis/data/trajectory_adf_zoi.csv")
 
+df = df[df["ZOI"] == 1]
+
 # CHANGE 1: Project to Meters (UTM 48N)
 gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.lon, df.lat), crs="EPSG:4326")
 gdf = gdf.to_crs(epsg=32648)
