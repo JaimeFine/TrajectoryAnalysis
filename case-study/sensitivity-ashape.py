@@ -1,13 +1,12 @@
 import pandas as pd
 import numpy as np
 from infomap import Infomap
+from KDEpy import FFTKDE
+from skimage import measure
+import geopandas as gpd
 from scipy.spatial import cKDTree
 import time
-import alphashape
-import shapely.geometry as geom
-import geopandas as gpd
 
-# --- INITIAL STEPS ---
 t_start = time.perf_counter()
 
 print(f"[{time.perf_counter()-t_start:.2f}s] Loading data...")
@@ -15,19 +14,16 @@ df = pd.read_csv("C:/Users/13647/OneDrive/Desktop/MiMundo/Projects/TrajectoryAna
 
 df = df[df["ZOI"] == 1]
 
-# --- CONVERT TO GEOPANDAS + PROJECT TO METERS ---
 gdf_points = gpd.GeoDataFrame(
     df,
     geometry=gpd.points_from_xy(df.lon, df.lat),
-    crs="EPSG:4326"  # WGS84
+    crs="EPSG:4326"
 )
 
-# Use a local UTM zone for meters (Chengdu ~ EPSG:32648)
 gdf_points = gdf_points.to_crs(epsg=32648)
 coords_m = np.vstack([gdf_points.geometry.x.values, gdf_points.geometry.y.values]).T
 adf_values = df['ADF'].values
 
-# --- BUILD GRAPH ---
 t0 = time.perf_counter()
 print(f"[{time.perf_counter()-t_start:.2f}s] Building KDTree...")
 tree = cKDTree(coords_m)
@@ -76,41 +72,19 @@ unique_comms, counts = np.unique(communities, return_counts=True)
     
 valid_communities = sum(1 for count in counts if count >= 4)
 
-a_shapes = [0.0001, 0.0002, 0.0004]
-for alpha_m in a_shapes:
-    community_polygons = {}
-    print("\nBuilding α-shape polygons in meters...")
-    for comm_id in unique_comms:
-        points = df[df['community'] == comm_id][['lon', 'lat']]
-        
-        # Project points to meters again for alpha-shape
-        gdf_comm = gpd.GeoDataFrame(
-            points,
-            geometry=gpd.points_from_xy(points.lon, points.lat),
-            crs="EPSG:4326"
-        ).to_crs(epsg=32648)
-        
-        coords_comm_m = np.vstack([gdf_comm.geometry.x.values, gdf_comm.geometry.y.values]).T
-        num_points = len(coords_comm_m)
-        
-        if num_points >= 4:
-            poly = alphashape.alphashape(coords_comm_m, alpha_m)
-            community_polygons[comm_id] = poly
-        else:
-            community_polygons[comm_id] = geom.MultiPoint(coords_comm_m)
+for comm_id in unique_comms:
+    mask = (np.array(communities) == comm_id)
+    X = coords_m[mask]
+    weights = adf_values[mask]
 
-    # --- CREATE GEOJSON FOR LEAFLET ---
-    gdf_list = []
-    for comm_id, poly in community_polygons.items():
-        gdf_list.append(gpd.GeoDataFrame(
-            {'community':[comm_id]},
-            geometry=[poly],
-            crs="EPSG:32648"
-        ))
+    kde = FFTKDE(bw=500).fit(X, weights=weights) # same to the ADF sigma
+    grid, density = kde.evaluate(grid_points=1024)
+    _, point_density = kde.evaluate(X)
 
-    gdf = pd.concat(gdf_list, ignore_index=True)
-    # Convert back to lat/lon for Leaflet
-    gdf = gdf.to_crs(epsg=4326)
-    gdf.to_file(f"zoi_polygons_meters_{alpha_m}.geojson", driver="GeoJSON")
+    rho = 0.9   # Adjustable
+    threshold = np.min(point_density) * rho
 
-    print(f"Saved α-shape polygons in meters to 'zoi_polygons_meters.geojson'")
+    contours = measure.find_contours(
+        density.reshape(grid[0].shape),
+        level=threshold
+    )
