@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-import networkx as nx
 from infomap import Infomap
 from scipy.spatial import cKDTree
 import time
@@ -36,22 +35,20 @@ max_dist = sigma_m * 5
 pairs = tree.query_pairs(r=max_dist)
 print(f"[{time.perf_counter()-t_start:.2f}s] Found {len(pairs)} potential edges.")
 
-G = nx.Graph()
-G.add_nodes_from(range(len(df)))
-
 log_interval = 100
 count = 0
 total_pairs = len(pairs)
 chunk_start = time.perf_counter()
 
-for i, j in pairs:
-    count += 1
+if pairs:
+    pair_array = np.array(list(pairs))
+    i, j = pair_array.T
     
-    dist = np.linalg.norm(coords_m[i] - coords_m[j])
+    dist = np.linalg.norm(coords_m[i] - coords_m[j], axis=1)
     weight = min(adf_values[i], adf_values[j]) * np.exp(-dist / sigma_m)
     
-    if weight > 0:
-        G.add_edge(i, j, weight=weight)
+    mask = weight > 0
+    edge_list = list(zip(i[mask], j[mask], weight[mask]))
     
     if count % log_interval == 0 or count == total_pairs:
         now = time.perf_counter()
@@ -60,14 +57,16 @@ for i, j in pairs:
         percent = (count / total_pairs) * 100
         print(f"{percent:>6.1f}% | {count:>10} edges | speed: {speed:>6.0f}/s")
         chunk_start = time.perf_counter()
+else:
+    edge_list = []
 
 print(f"Graph construction complete in {time.perf_counter() - t0:.2f}s")
 
 # --- RUN INFOMAP ---
 print(f"[{time.perf_counter()-t_start:.2f}s] Running Infomap...")
 infomap_wrapper = Infomap("--two-level --silent")
-for u, v, data in G.edges(data=True):
-    infomap_wrapper.add_link(u, v, data['weight'])
+for u, v, w in edge_list:
+    infomap_wrapper.add_link(u, v, w)
 infomap_wrapper.run()
 
 communities = {node.node_id: node.module_id for node in infomap_wrapper.nodes}

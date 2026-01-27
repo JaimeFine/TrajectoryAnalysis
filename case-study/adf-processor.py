@@ -111,38 +111,6 @@ track_df = pd.DataFrame({
     "ZOI": zoi_mask.astype(int)
 })
 
-# Sample visualization in 2D (3D is not ideal for visualization)
-import matplotlib.pyplot as plt
-
-plt.figure(figsize=(9, 6))
-
-plt.scatter(df["lon"], df["lat"], s=1, alpha=0.03, color="gray")
-
-plt.scatter(
-    track_df["lon"],
-    track_df["lat"],
-    c=track_df["ADF"],
-    cmap="viridis",
-    s=4
-)
-
-zoi_df = track_df[track_df["ZOI"] == 1]
-plt.scatter(
-    zoi_df["lon"],
-    zoi_df["lat"],
-    color="red",
-    s=6,
-    label="ZOI"
-)
-
-plt.plot(track_df["lon"], track_df["lat"], color="white", linewidth=1)
-
-plt.xlabel("Longitude")
-plt.ylabel("Latitude")
-plt.title("Trajectory-Conditioned ZOI via Adaptive Density Field")
-plt.legend()
-plt.show()
-
 # Save for R's leaflet:
 df[["lon", "lat"]].to_csv(
     "poi_background.csv", index=False
